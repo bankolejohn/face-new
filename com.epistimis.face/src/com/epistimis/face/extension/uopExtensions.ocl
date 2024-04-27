@@ -1,0 +1,313 @@
+/**
+ * FACE UoP level - Epistimis extensions outside of the FACE spec
+ */
+import ecore : 'http://www.eclipse.org/emf/2002/Ecore#/'
+--import 'http://www.epistimis.com/uddl/Uddl'
+--import 'http://www.epistimis.com/face/Face'
+--import 'platform:/plugin/com.epistimis.uddl/model/generated/Uddl.ecore'
+import 'platform:/plugin/com.epistimis.face/model/generated/Face.ecore'
+
+--include 'platform:/plugin/com.epistimis.face/src/com/epistimis/face/constraints/face.ocl'
+
+/**
+ * Includes apparently work like imports to bring in other files. And this approach makes it free of 
+ * the directory specifics between repos
+ */
+include 'platform:/plugin/com.epistimis.uddl/src/com/epistimis/uddl/extension/conceptualExtensions.ocl'
+include 'platform:/plugin/com.epistimis.uddl/src/com/epistimis/uddl/extension/platformExtensions.ocl'
+
+package face
+	context FaceElement
+	   /**
+		 * Declare a helper operation to map an ok/warning verdict to ok/error.
+		 */
+		def: asError(verdict : Boolean) : Boolean = if verdict then true else null endif
+
+	   /**
+		 * Declare a helper operation to map an ok/warning verdict to ok/warning. This doesn't 
+		 * do anything but gives us two functions with similar names in case developers forget
+		 * they can just use they inv return 'as is' for warnings.
+		 */
+		def: asWarning(verdict : Boolean) : Boolean = if verdict then true else false endif
+
+
+
+	context UopConnection
+		
+		def: matchingObservables(checklist: Set(uddl::ConceptualObservable) ): Set(uddl::ConceptualObservable) = 
+			if (self.oclIsKindOf(UopPubSubConnection)) then
+				self.oclAsType(UopPubSubConnection).matchingObservables(checklist)
+			else 
+				self.oclAsType(UopClientServerConnection).matchingObservables(checklist)
+			endif
+			
+		/**
+		 * Are any of the listed observables on this connection?
+		 */
+		def: observablesOnConnection(checklist: Set(uddl::ConceptualObservable) ): Boolean = 
+			matchingObservables(checklist)->notEmpty()
+			
+		def: owningUop(): UopUnitOfPortability = 
+			self.oclContainer.oclAsType(UopUnitOfPortability)
+					
+		/**
+		 * NOTE: Gets all of the referenced model types, regardless of direction of connection
+		 *  This may not be  what you want.  
+		 */
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			if (self.oclIsKindOf(UopPubSubConnection)) then
+				self.oclAsType(UopPubSubConnection).referencedModelTypes()
+			else 
+				self.oclAsType(UopClientServerConnection).referencedModelTypes()
+			endif
+	
+		/**
+		 * Get the referenced model types for the specified direction. Might be empty if 
+		 * this connection is uni directional going in the opposite direction.
+		 */
+		def: referencedModelTypes(dir: UopMessageExchangeType): Set(uddl::ConceptualComposableElement) =
+			if (self.oclIsKindOf(UopPubSubConnection)) then
+				self.oclAsType(UopPubSubConnection).referencedModelTypes(dir)
+			else 
+				self.oclAsType(UopClientServerConnection).referencedModelTypes(dir)
+			endif
+
+
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			if (self.oclIsKindOf(UopPubSubConnection)) then
+				self.oclAsType(UopPubSubConnection).referencesModelType(rmt)
+			else 
+				self.oclAsType(UopClientServerConnection).referencesModelType(rmt)
+			endif
+
+		/**
+		 * is this role used, and does it use the checkType in its structure.
+		 */
+		 def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean =
+			if (self.oclIsKindOf(UopPubSubConnection)) then
+				self.oclAsType(UopPubSubConnection).roleUsesType(role, checkType)
+			else 
+				self.oclAsType(UopClientServerConnection).roleUsesType(role, checkType)
+			endif
+
+	
+	context UopPubSubConnection
+		/**
+		 * Find only the observables referenced on this connection
+		 */
+		def: matchingObservables(checklist: Set(uddl::ConceptualObservable) ): Set(uddl::ConceptualObservable) = 
+			self.messageType.referencedModelTypes()->selectByType(uddl::ConceptualObservable)->select(t|checklist->includes(t))->asSet()
+	
+		/**
+		 * NOTE: Gets all of the referenced model types, regardless of direction of connection
+		 *  This may not be  what you want.  
+		 */
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			self.messageType.referencedModelTypes()->asSet()
+		
+		/**
+		 * Get the referenced model types for the specified direction. Will be empty if 
+		 * this connection is going in the opposite direction.
+		 */
+		def: referencedModelTypes(dir: UopMessageExchangeType): Set(uddl::ConceptualComposableElement) =
+				if (dir = self.messageExchangeType) then
+					self.referencedModelTypes(dir)
+				else
+					Set{}
+				endif
+
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			self.messageType.referencesModelType(rmt)
+
+
+		/**
+		 * check to see if the specified role is used anywhere. That
+		 * means first finding a composition element with the specified role name and then checking
+		 * from that type down to see if the checkType is used
+		 */
+		 def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean =
+		 	self.messageType.roleUsesType(role, checkType)
+
+		
+	context UopClientServerConnection
+		/**
+		 * NOTE: Gets all of the matchingObservables, regardless of direction of connection
+		 *  This may not be  what you want.  
+		 */
+		def: matchingObservables(checklist: Set(uddl::ConceptualObservable) ): Set(uddl::ConceptualObservable) = 
+			let reqRefs = self.requestType.referencedModelTypes()->selectByType(uddl::ConceptualObservable)->select(t|checklist->includes(t)) in
+			let resRefs = self.responseType.referencedModelTypes()->selectByType(uddl::ConceptualObservable)->select(t|checklist->includes(t)) in
+			reqRefs->union(resRefs)->asSet()
+			
+		/**
+		 * NOTE: Gets all of the referenced model types, regardless of direction of connection
+		 *  This may not be  what you want.  
+		 */
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			let reqRefs = self.requestType.referencedModelTypes() in
+			let resRefs = self.responseType.referencedModelTypes() in
+			reqRefs->union(resRefs)->asSet()
+	
+		/**
+		 * Get the referenced model types for the specified direction. 
+		 */
+		def: referencedModelTypes(dir: UopMessageExchangeType): Set(uddl::ConceptualComposableElement) =
+				if (dir = UopMessageExchangeType::INBOUND_MESSAGE) then
+					self.responseType.referencedModelTypes()
+				else
+					self.requestType.referencedModelTypes()
+				endif
+
+
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			self.requestType.referencesModelType(rmt) or 
+			self.responseType.referencesModelType(rmt) 
+
+
+		/**
+		 * check to see if the specified role is used anywhere. That
+		 * means first finding a composition element with the specified role name and then checking
+		 * from that type down to see if the checkType is used
+		 */
+		 def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean =
+			self.requestType.roleUsesType(role, checkType) or 
+			self.responseType.roleUsesType(role, checkType) 
+
+	
+	context UopUnitOfPortability
+	
+		/**
+		 * Get all the instances that realize this component
+		 */
+		def: realizations(): Set(IntegrationUoPInstance) = 
+			IntegrationUoPInstance.allInstances()->select(i | i.realizes = self)->asSet()
+	
+		/**
+		 * Return all the model types referenced by this UoP, regardless of direction
+		 */
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			self.connection->collect(referencedModelTypes())->asSet()
+
+		/**
+		 * Return only the model types referenced by this UoP for the direction specified
+		 */
+		def: referencedModelTypes(dir: UopMessageExchangeType): Set(uddl::ConceptualComposableElement) =
+			let psConns = self.connection->selectByKind(face::UopPubSubConnection) in
+			let csConns = self.connection->selectByKind(face::UopClientServerConnection) in
+			let psIns = psConns->select(messageExchangeType = UopMessageExchangeType::INBOUND_MESSAGE) in
+			let psOuts = psConns->select(messageExchangeType = UopMessageExchangeType::OUTBOUND_MESSAGE) in
+			let csIns = csConns->select(role = UoPClientServerRole::SERVER) in
+			let csOuts = csConns->select(role = UoPClientServerRole::CLIENT) in
+			let resultConns = 
+				if (dir = UopMessageExchangeType::INBOUND_MESSAGE) then
+					psIns->union(csIns)
+				else 
+					psOuts->union(csOuts)
+				endif
+				in
+			resultConns->iterate(conn: UopConnection; result: Set(uddl::ConceptualComposableElement) = Set{} |
+				result->includingAll(conn.referencedModelTypes())
+			)
+	
+		def: referencesModelType(t: uddl::ConceptualComposableElement): Boolean =
+			self.referencedModelTypes()->includes(t)
+	
+		/**
+		 * Is this role used (on any connection), and does it use this type?
+		 */
+		def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean = 
+			self.connection->exists(roleUsesType(role, checkType))
+
+		/**
+		 * Helper method to collect info needed 
+		 */
+		def: nameDescriptionLogic(): Tuple(name:String, description: String, logic:String ) =
+			let logicDesc =  self?.implementedBy?.description in
+			Tuple{ name: String = self.name, description: String = self.description, logic: String = logicDesc }  
+		
+	context UopMessageType
+	
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			if (self.oclIsKindOf(UopTemplate))	then
+				self.oclAsType(UopTemplate).referencedModelTypes()
+			else
+				self.oclAsType(UopCompositeTemplate).referencedModelTypes()
+			endif
+	
+		def: matchingObservables(checklist: Set(uddl::ConceptualObservable) ): Set(uddl::ConceptualObservable) = 
+			self.referencedModelTypes()->selectByType(uddl::ConceptualObservable)->select(t|checklist->includes(t))->asSet()
+
+
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			if (self.oclIsKindOf(UopTemplate))	then
+				self.oclAsType(UopTemplate).referencesModelType(rmt)
+			else
+				self.oclAsType(UopCompositeTemplate).referencesModelType(rmt)
+			endif
+
+		/**
+		 * Is this role used, and does it use this type?
+		 */
+		def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean = 
+			if (self.oclIsKindOf(UopTemplate))	then
+				self.oclAsType(UopTemplate).roleUsesType(role, checkType)
+			else
+				self.oclAsType(UopCompositeTemplate).roleUsesType(role, checkType)
+			endif
+	
+	context UopTemplate
+	
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			self.boundQuery.referencedModelTypes()
+	
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			self.boundQuery.referencesModelType(rmt)
+
+
+		/**
+		 * check to see if the specified role is used anywhere. That
+		 * means first finding a composition element with the specified role name and then checking
+		 * from that type down to see if the checkType is used
+		 */
+		 def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean =
+		 	self.boundQuery.roleUsesType(role, checkType)
+	
+			
+	context UopCompositeTemplate
+	
+		def: referencedModelTypes(): Set(uddl::ConceptualComposableElement) =
+			self.composition->collect(type.referencedModelTypes())->flatten()->asSet()
+		
+
+		/**
+		 * Does this element reference the specified type?
+		 */
+		def: referencesModelType(rmt: uddl::ConceptualComposableElement): Boolean = 
+			self.composition->exists(type.referencesModelType(rmt))
+			
+
+
+		/**
+		 * check to see if the specified role is used anywhere. That
+		 * means first finding a composition element with the specified role name and then checking
+		 * from that type down to see if the checkType is used
+		 */
+		 def: roleUsesType(role: String, checkType: uddl::ConceptualComposableElement): Boolean =
+		 	self.composition->exists(type.roleUsesType(role, checkType))
+
+endpackage

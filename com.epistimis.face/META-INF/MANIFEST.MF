@@ -1,0 +1,46 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: com.epistimis.face
+Bundle-ManifestVersion: 2
+Bundle-Name: com.epistimis.face
+Bundle-Vendor: Epistimis LLC
+Bundle-Version: 1.0.0.qualifier
+Bundle-SymbolicName: com.epistimis.face; singleton:=true
+Bundle-ActivationPolicy: lazy
+Require-Bundle: org.eclipse.xtext,
+ org.eclipse.xtext.xbase,
+ org.eclipse.equinox.common;bundle-version="3.16.0",
+ com.epistimis.uddl;bundle-version="1.0.0",
+ com.epistimis.uddl.query;bundle-version="1.0.0",
+ org.eclipse.emf.ecore,
+ org.eclipse.emf.validation;bundle-version="1.8.1",
+ org.eclipse.xtext.util,
+ org.eclipse.emf.common,
+ org.antlr.runtime;bundle-version="[3.2.0,3.2.1)",
+ org.eclipse.ocl;bundle-version="3.17.0",
+ org.eclipse.ocl.pivot;bundle-version="1.17.0",
+ org.eclipse.ocl.xtext.oclstdlib;bundle-version="1.17.0",
+ org.eclipse.ocl.xtext.completeocl;bundle-version="1.17.0",
+ org.eclipse.xtext.xbase.lib;bundle-version="2.14.0",
+ io.typefox.xtext2langium;bundle-version="0.4.0",
+ com.epistimis.face.templ;bundle-version="1.0.0",
+ com.epistimis.xtextdocs.xtext;bundle-version="1.1.0"
+Bundle-RequiredExecutionEnvironment: JavaSE-17
+Export-Package: 
+ com.epistimis.face,
+ com.epistimis.face.constraints,
+ com.epistimis.face.constraints.standalone,
+ com.epistimis.face.exceptions,
+ com.epistimis.face.extension,
+ com.epistimis.face.face,
+ com.epistimis.face.face.impl,
+ com.epistimis.face.face.util,
+ com.epistimis.face.formatting2,
+ com.epistimis.face.generator,
+ com.epistimis.face.parser.antlr,
+ com.epistimis.face.parser.antlr.internal,
+ com.epistimis.face.scoping,
+ com.epistimis.face.serializer,
+ com.epistimis.face.services,
+ com.epistimis.face.util,
+ com.epistimis.face.validation
+Import-Package: org.apache.log4j
